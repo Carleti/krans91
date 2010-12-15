@@ -1,0 +1,421 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>krans91</title>
+    <script type="text/javascript">
+      // <![CDATA[
+    var ANCHO = 9;
+    var secuencia_1_19 = "123456789111213141516171819";
+    var digitos = "";
+    var esperando = false;
+
+    var ARRIBA = "arriba"; var ABAJO = "abajo";
+    var IZQUIERDA = "izquierda"; var DERECHA = "derecha";
+
+    function despues (str_expr, ms) {
+      esperando = true;
+      setTimeout("esperando=false;" + str_expr, ms);
+    }
+
+    function in_array (item, arr) {
+      for (var i=0; i < arr.length; i++) {
+        if (arr[i] == item) return true;
+      }
+      return false;
+    }
+
+    Array.prototype.contains = function (item) {
+      return in_array(item, this);
+    }
+
+    function str_replace_at (s, pos, ch) {
+      return s.slice(0, pos) + ch + s.substr(pos+1);
+    }
+
+    function dolist (fn, arr) {
+      for (var i=0; i<arr.length; i++)
+        fn(arr[i]);
+    }
+
+    Array.prototype.each = function (fn) {
+      dolist(fn, this);
+    }
+
+    function map (fn, arr) {
+      var result = [];
+      for (var i=0; i<arr.length; i++) {
+        result.push(fn(arr[i]));
+      }
+      return result;
+    }
+
+    String.prototype.repeat = function (veces) {
+      return new Array(veces + 1).join(this);
+    }
+
+    function filas_a_borrar (ds) {
+      var result = [];
+      var vacio = "-".repeat(ANCHO);
+      for (var i=0; i<ds.length; i+=ANCHO) {
+        if (ds.substring(i, i+ANCHO) === vacio) {
+          result.push(i/ANCHO);
+        }
+      }
+      return result;
+    }
+
+    function pos_vecino (pos, direccion, str) {
+      if (typeof(str) == "undefined") str = digitos;
+      var paso;
+      if (direccion == IZQUIERDA) paso = -1;
+      else if (direccion == DERECHA) paso = 1;
+      else if (direccion == ARRIBA) paso = -ANCHO;
+      else if (direccion == ABAJO) paso = ANCHO;
+
+      do {
+        pos += paso;
+      } while (pos >= 0 && pos < str.length && str.charAt(pos) == "-")
+
+      if (pos < 0 || pos >= str.length) return -1;
+
+      return pos;
+    }
+
+    function posibles_pares (pos) {
+      var d = digitos.charAt(pos);
+      if (d == "-") return [];
+      d = parseInt(d, 10);
+      var result = [];
+      dolist(function (dir) {
+          var posv = pos_vecino(pos, dir);
+          if (posv < 0) return;
+          var d2 = parseInt(digitos.charAt(posv), 10);
+          if (d2 == d || d2 + d == 10)
+            result.push(posv);
+        }, [ARRIBA, ABAJO, IZQUIERDA, DERECHA]);
+      return result;
+    }
+
+    function todos_los_pares (s) {
+      var result = [];
+      for (var i = 0; i < s.length; i++) {
+        var d = s.charAt(i);
+        if (d == "-") continue;
+        d = parseInt(d, 10);
+        dolist(function (dir) {
+            var posv = pos_vecino(i, dir, s);
+            if (posv < 0) return;
+            var d2 = parseInt(s.charAt(posv), 10);
+            if (d2 == d || d2 + d == 10)
+              result.push([i, posv]);
+          }, [DERECHA, ABAJO]);
+      }
+      return result;
+    }
+
+    function conf_inicial() {
+      var radios = document.forms[0]["conf-inicial"];
+      for (var i = 0; i < radios.length; i++) {
+        if (radios[i].checked) return radios[i].value;
+      }
+    }
+
+    function limpia_tablero() {
+      var tablero = document.getElementById("tablero");
+      while (tablero.rows.length > 0)
+        tablero.deleteRow(0);
+      digitos = "";
+    }
+
+    function inserta_digito (d) {
+      var pos = digitos.length;
+      var tablero = document.getElementById("tablero");
+      var last_row_idx = tablero.rows.length-1;
+      var row;
+      var cell;
+      if (pos % ANCHO === 0) {
+        row = tablero.insertRow(last_row_idx + 1);
+        row.id = "r" + (last_row_idx + 1);
+        // relleno:
+        for (var i=0; i < ANCHO; i++) {
+          cell = row.insertCell(row.cells.length);
+          cell.id = "p" + (pos + i);
+          cell.className = "negra";
+        }
+      }
+      else {
+        row = tablero.rows[last_row_idx];
+      }
+      cell = document.getElementById("p" + pos);
+      cell.className = "elegible";
+      cell.onclick = function () { click_en_celda(cell); };
+      cell.innerHTML = d; 
+      digitos += d;
+    }
+
+    function inserta_digitos (ds) {
+      if (ds.length === 0) return;
+      inserta_digito(ds.substr(0, 1));
+      var tail = ds.substr(1);
+      despues("inserta_digitos('" + tail + "')", 50);
+    }
+
+    function inicia_apareo (celda_inicial) {
+      celda_inicial.className = "medio-par";
+      var pos = parseInt(celda_inicial.id.substr(1), 10);
+      var pp = posibles_pares(pos);
+      for (var i=0; i < digitos.length; i++) {
+        var id = "p" + i;
+        var celda = document.getElementById(id);
+        if (celda !== celda_inicial) {
+          if (in_array(i, pp))
+            celda.className = "posible-par";
+          else
+            celda.className = "inelegible";
+        }
+      }
+    }
+
+    function finaliza_apareo (celda_final) {
+      celda_final.className = "medio-par";
+      despues("resetea(true)", 80);
+    }
+
+    function resetea (elimina_medios_pares) {
+      for (var i=0; i<digitos.length; i++) {
+        var celda = document.getElementById("p" + i);
+        var cn = celda.className;
+        if (cn == "inelegible" && digitos.charAt(i) != '-')
+          celda.className = "elegible";
+        else if (cn == "posible-par")
+          celda.className = "elegible";
+        else if (cn == "medio-par") {
+          if (elimina_medios_pares) {
+            digitos = str_replace_at(digitos, i, "-");
+            celda.className = "inelegible";
+            while (celda.firstChild != null)
+              celda.removeChild(celda.firstChild);
+            celda.appendChild(document.createTextNode("—"));
+          }
+          else
+            celda.className = "elegible";
+        }
+      }
+      if (elimina_medios_pares) {
+        var a_borrar = filas_a_borrar(digitos);
+        var tarea = "";
+        if (a_borrar.length > 0) {
+          dolist(function (fila) {
+              for (var i=fila*ANCHO; i < (fila+1)*ANCHO; i++) {
+                document.getElementById("p" + i).className = "a-borrar";
+              }
+            }, a_borrar);
+          var pref = "document.getElementById('r";
+          var suff = "').style.display = 'none';";
+          dolist(function (fila) { tarea += pref + fila + suff; }, a_borrar);
+        }
+        
+        if (todos_los_pares(digitos).length == 0) {
+          if (tarea !== "") {
+            tarea += "pone_mas_digitos()";
+          }
+          else {
+            pone_mas_digitos();
+          }
+        }
+        if (tarea !== "") despues(tarea, 220);
+      }
+    }
+
+    function pone_mas_digitos () {
+      a_poner = digitos.replace(/\D/g, "");
+      if (a_poner === "") {
+        alert("Felicitaciones"); return;
+      }
+      while (todos_los_pares(digitos + a_poner).length == 0) {
+        var extra = "";
+        for (var i=0; i < ANCHO; i++) {
+          extra += a_poner.charAt( Math.floor(Math.random() * a_poner.length) );
+        }
+        a_poner += extra;
+      }
+      inserta_digitos(a_poner);
+    }
+
+    function ayuda () {
+      var p = todos_los_pares(digitos);
+      if (p.length == 0) return;
+      var par = p[ Math.floor(Math.random()*p.length) ];
+      var pref = "document.getElementById('p";
+      var suff = "').className = 'elegible'";
+      document.getElementById("p" + par[0]).className = "medio-par";
+      document.getElementById("p" + par[1]).className = "medio-par";
+      despues(pref + par[0] + suff + ";" + pref + par[1] + suff, 300);
+    }
+
+    function click_en_celda (celda) {
+      if (esperando) return;
+      var cn = celda.className;
+      if (cn == "elegible")
+        inicia_apareo(celda);
+      else if (cn == "posible-par")
+        finaliza_apareo(celda);
+      else if (cn == "medio-par")
+        resetea(false);
+    }
+
+    function boton_empezar_click() {
+      if (esperando) return;
+      empieza();
+    }
+
+    function boton_ayuda_click() {
+      if (esperando) return;
+      ayuda();
+    }
+
+    function empieza() {
+      if (digitos.replace(/\D/g, "") !== "") {
+        if (!confirm("¿Terminar este juego y empezar otro?")) return;
+      }
+      limpia_tablero();
+      var type = conf_inicial();
+      var sec = "";
+      if (type === "sec")
+        sec = secuencia_1_19;
+      else if (type === "azar") {
+        for (var i=0; i < ANCHO*3 || todos_los_pares(sec).length < 3; i++) {
+          var d = Math.floor(Math.random()*9) + 1;
+          sec += "" + d;
+        }
+      }
+      else if (type === "user") {
+        sec = document.getElementById('digitos-iniciales').value.replace(/\D/g, "");
+        if (sec === "") return;
+      }
+      inserta_digitos(sec);
+    }
+      // ]]>
+    </script>
+    <style type="text/css">
+      #tablero {
+        border-collapse: collapse;
+        background: black;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      #tablero td {
+        border: 1px solid black;
+        background: white;
+        width: 20pt; height: 20pt;
+        font-size: 18pt;
+        font-family: sans-serif;
+        text-align: center;
+        cursor: default;
+      }
+      #tablero td.elegible:hover, #tablero td.posible-par:hover {
+        background: #d9d9d9;
+      }
+      #tablero td.medio-par {
+        background: red;
+        color: white;
+        cursor: pointer;
+      }
+      #tablero td.elegible, #tablero td.inelegible {
+        background: #cdcdcd;
+      }
+      #tablero td.a-borrar {
+        background: yellow;
+      }
+      #tablero td.elegible {
+        cursor: pointer;
+      }
+      #tablero td.posible-par {
+        background: #cdcdcd;
+        cursor: pointer;
+      }
+      #tablero td.negra {
+        background: black;
+      }
+      #opciones {
+        width: 23em;
+        position: fixed;
+        left: 10px;
+        top: 20px;
+        padding: 10px;
+        font-family: sans-serif;
+        font-size: 9pt;
+        background: #ffc;
+        border: 1px solid black;
+      }
+      #juego {
+        padding: 10pt;
+        text-align: center;
+      }
+      body {
+        background: #f0f0f0;
+      }
+      
+    </style>
+  </head>
+  <body>
+    <div id="opciones">
+      <form onsubmit="return false;">
+        <fieldset>
+          <legend>Configuración inicial</legend>
+          <div>
+            <input name="conf-inicial" type="radio"
+                   value="sec" id="c-i-sec" checked="checked" />
+            <label for="c-i-sec">Dígitos en la secuencia 1-9,11-19</label>
+          </div>
+          <div>
+            <input name="conf-inicial" type="radio"
+                   value="azar" id="c-i-azar" />
+            <label for="c-i-azar">Dígitos al azar</label>
+          </div>
+          <div>
+            <input name="conf-inicial" type="radio"
+                   value="user" id="c-i-user" />
+            <label for="c-i-user">Estos dígitos:</label><br/>
+            <textarea id="digitos-iniciales" style="margin-left:3em"
+              name="digitos" cols="9" rows="4"></textarea>
+          </div>
+        </fieldset>
+      </form>
+      <div id="div-boton">
+        <button id="boton" onclick="boton_empezar_click()">
+          Empezar
+        </button>
+        <button id="boton-ayuda" onclick="boton_ayuda_click()">
+          Ayuda
+        </button>
+      </div>
+    </div>
+    <div id="juego">
+      <table id="tablero">
+        <tr id="ultima-fila">
+          <td> </td><td>K</td><td>R</td><td>A</td><td>N</td><td>S</td><td>9</td><td>1</td><td> </td>
+        </tr>
+        <tr>
+          <td><i>u</i></td><td><i>n</i></td><td><i>a</i></td><td><i> </i></td>
+          <td><i>c</i></td><td><i>o</i></td><td><i>p</i></td><td><i>i</i></td><td><i>a</i></td>
+        </tr>
+        <tr>
+          <td><i> </i></td><td><i> </i></td><td><i> </i></td><td><i>d</i></td><td><i>e</i></td>
+          <td><i> </i></td><td><i> </i></td><td><i> </i></td><td><i> </i></td>
+        </tr>
+        <tr>
+          <td>“</td><td>1</td><td>9</td><td>t</td><td>o</td><td>u</td><td>c</td><td>h</td><td>”</td>
+        </tr>
+        <tr>
+          <td colspan="9" style="font-size:9pt">Original en:
+            <a href="http://april32.com/products/19touch">april32.com</a></td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>
+      
+
+
